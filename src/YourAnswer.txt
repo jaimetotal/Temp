@@ -2,4 +2,5 @@ Write below your answer for the third task:
 
 Q: Explain what is a good software and a good code. 
 
-A: 
+A: In my opinion, good code is code that is testable, easy to read, modular, peer reviewed and have some level of documentation in order to be maintainable not by the original team but by anyone participating in that project. Talking fancy, it should have in mind the SOLID and YAGNI principles as guidelines - not as a set of rules - as well an agile architecture mindset, where the important thing is to define the foundations as the rest of the software can evolve from the initial idea, since the requirements can change in a later time.
+Good software is the end result of not just good code but also the successful communication between all stakeholders (either by extensive up-to-date documentation or quality in the user stories from the customers / product owners to technical decisions that need to be aware between all developers), and good project management in order to ensure budget and time constraints. When any of these elements have issues, there is always degradation in the quality of the end result.

@@ -8,9 +8,11 @@ namespace AddressProcessing.CSV
 
         Please leave the rest of this file as it is so we can discuss your concerns during the next stage of the interview process.
         
-        *)
-        *)
-        *)
+        *) The main issue is having a class with two responsabilities: to read and write from/to CSV and the initialization issues that come with it (causing NullReferenceExceptions)
+        *) Stringbuilder or string apis are available to concatenate strings and improve performance when using Write (specially if there is bullk operations)
+        *) The fact that we only to read two columns (and the first read is useless)
+        *) The fact that this class can easily be replaced by several open source solutions
+        *) The code is seriously error prone specially due to Open mode, array out of bounds and not knowning when the EOF has been reached (causing NullReferenceException in the Read methods when doing splits)
     */
 
     public class CSVReaderWriterForAnnotation

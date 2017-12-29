@@ -45,3 +45,4 @@ packages
 
 # Office Temp Files
 ~$*
+/src/.vs/Exercise/v15/Server/sqlite3

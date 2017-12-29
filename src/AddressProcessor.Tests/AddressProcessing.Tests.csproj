@@ -59,6 +59,7 @@
   <ItemGroup>
     <Compile Include="AddressFileProcessorTests.cs" />
     <Compile Include="CSV\CSVReaderWriterTests.cs" />
+    <Compile Include="NUnit\StringTestCase.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
