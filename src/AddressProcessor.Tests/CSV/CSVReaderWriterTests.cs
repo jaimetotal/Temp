@@ -7,6 +7,9 @@ using NUnit.Framework;
 namespace Csv.Tests
 {
     [TestFixture]
+    // NOTE: This class covers 96% of the CSVReaderWriter class, with the missing tests being only due to Read method marked as obsolete.
+    // We could increase the unit tests number if we test file system scenarios where we have issues but they will be considerated out-of-scope
+    // as they feel more of integration tests than anything else
     public class CSVReaderWriterTests
     {
         // NOTE: If file is missing in the target folder, check the output in Solution Explorer properties
@@ -38,13 +41,6 @@ namespace Csv.Tests
             }
         }
 
-        [Test]
-        public void Args_Constructor_Should_BeInvalid_When_NonReadOrWriteMode()
-        {
-            TestDelegate build = () => new CSVReaderWriter(ValidCSVFile, CSVReaderWriter.Mode.Write | CSVReaderWriter.Mode.Read);
-            Assert.Catch<Exception>(build, "Unknown file mode for " + ValidCSVFile);
-        }
-
         // Note: Don't think we should cover all the scenarios with file system issues
         [Test]
         public void Args_Constructor_Should_ThrowException_When_FileDoesntExist_In_ReadMode()
@@ -68,13 +64,6 @@ namespace Csv.Tests
             {
                 reader.Open(NewWriteFile, CSVReaderWriter.Mode.Write);
             }
-        }
-
-        [Test]
-        public void Open_Should_BeInvalid_When_NonReadOrWriteMode()
-        {
-            TestDelegate build = () => new CSVReaderWriter(ValidCSVFile, CSVReaderWriter.Mode.Write | CSVReaderWriter.Mode.Read);
-            Assert.Catch<Exception>(build, "Unknown file mode for " + ValidCSVFile);
         }
 
         // Note: Don't think we should cover all the scenarios with file system issues

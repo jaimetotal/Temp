@@ -8,6 +8,8 @@ namespace AddressProcessing.CSV
            Assume this code is in production and backwards compatibility must be maintained.
     */
 
+    // NOTE: This code could be refactored to use a proper open source solution but for now, it will just have refactoring
+    // This could be splitted between CSVReader and CSVWriter but in order to maintain retrocompability, the class will have both responsabilities
     public class CSVReaderWriter : IDisposable
     {
         private const string CSVSeparator = "\t";
@@ -15,7 +17,7 @@ namespace AddressProcessing.CSV
         private StreamReader _readerStream = null;
         private StreamWriter _writerStream = null;
 
-        // We shouldn't keep the flags as we don't support both modes at the same time. That way we can avoid a condition in the Open method
+        // We shouldn't keep the flags as we don't support both modes at the same time. That way we can avoid an additional condition (and less error usage from the user) in the Open method
         // NOTE: When adding a new mode, it's necessary to implement support in the Open method
         public enum Mode { Read = 1, Write = 2 };
 
@@ -26,6 +28,12 @@ namespace AddressProcessing.CSV
             Open(fileName, mode);
         }
 
+        /// <summary>
+        /// Opens the file in either <see cref="Mode.Read"/> which in turn can use <see cref="Read(out string, out string)"/> 
+        /// or <see cref="Mode.Write"/> mode, in order to allow <see cref="Write(string[])"/>
+        /// </summary>
+        /// <param name="fileName">File path to read or create, depending on <paramref name="mode"/></param>
+        /// <param name="mode">Read or Write mode allowed</param>
         public void Open(string fileName, Mode mode)
         {
             if (mode == Mode.Read)
@@ -43,6 +51,7 @@ namespace AddressProcessing.CSV
         /// Appends the line provided 
         /// </summary>
         /// <param name="columns">Columns to be persisted</param>
+        /// <exception cref="InvalidOperationException">In case the instance's mode is <see cref="Mode.Read"/>.</exception>
         public void Write(params string[] columns)
         {
             // Null columns can still be accepted (for retrocompability) as the end-result will be a newline
@@ -64,10 +73,11 @@ namespace AddressProcessing.CSV
         /// <param name="column1">Not applicable</param>
         /// <param name="column2">Not applicable</param>
         /// <returns>Returns true if a line was present with two columns. False otherwise</returns>
+        /// <exception cref="InvalidOperationException">In case the instance's mode is <see cref="Mode.Write"/>.</exception>
         [Obsolete]
         public bool Read(string column1, string column2)
         {
-            //This method is not useful except to skip a line
+            // NOTE: This method is not useful except to skip a line
             return Read(out column1, out column2);
         }
 
@@ -107,7 +117,7 @@ namespace AddressProcessing.CSV
         {
             if (_writerStream == null)
             {
-                // Depending on the mood and the rest of the project, I would create an exception specific to report this Mode issue
+                // NOTE: Depending on the need and the consistency in rest of the project, we can create an exception specific to report this Mode issue
                 // An alternative to this would be to ignore if it's not initialized
                 throw new InvalidOperationException(string.Format(ExceptionModeMessage, Mode.Write.ToString()));
             }
@@ -119,7 +129,7 @@ namespace AddressProcessing.CSV
         {
             if (_readerStream == null)
             {
-                // Depending on the mood and the rest of the project, I would create an exception specific to report this Mode issue
+                // NOTE: Depending on the need and the consistency in rest of the project, we can create an exception specific to report this Mode issue
                 // An alternative to this would be to return null if it's not initialized
                 throw new InvalidOperationException(string.Format(ExceptionModeMessage, Mode.Read.ToString()));
             }
