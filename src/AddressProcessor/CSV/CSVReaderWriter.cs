@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO;
 
 namespace AddressProcessing.CSV
 {
@@ -9,21 +8,56 @@ namespace AddressProcessing.CSV
     */
 
     // NOTE: This code could be refactored to use a proper open source solution but for now, it will just have refactoring
-    // This could be splitted between CSVReader and CSVWriter but in order to maintain retrocompability, the class will have both responsabilities
-    public class CSVReaderWriter : IDisposable
-    {
-        private const string CSVSeparator = "\t";
-        private const string ExceptionModeMessage = "This instance is not in {0} Mode.";
-        private StreamReader _readerStream = null;
-        private StreamWriter _writerStream = null;
+    public class CSVReaderWriter : ICSVFileReader, ICSVFileWriter
+	{
+	    private readonly ICSVFileReaderFactory csvFileReaderFactory;
+	    private readonly ICSVFileWriterFactory csvFileWriterFactory;
+	    private const string ExceptionModeMessage = "This instance is not in {0} Mode.";
+	    private bool disposedValue; // To detect redundant calls
+	    private ICSVFileReader csvFileReader;
+	    private ICSVFileWriter csvFileWriter;
 
         // We shouldn't keep the flags as we don't support both modes at the same time. That way we can avoid an additional condition (and less error usage from the user) in the Open method
         // NOTE: When adding a new mode, it's necessary to implement support in the Open method
         public enum Mode { Read = 1, Write = 2 };
 
-        public CSVReaderWriter() { }
+        /// <summary>
+        /// Initializes CSVReaderWriter with custom CSVFileReader and CSVFileWriter
+        /// </summary>
+        /// <param name="csvFileReaderFactory">ICSVFileReaderFactory instance. Mandatory.</param>
+        /// <param name="csvFileWriterFactory">ICSVFileWriterFactory instance. Mandatory.</param>
+	    public CSVReaderWriter(ICSVFileReaderFactory csvFileReaderFactory, ICSVFileWriterFactory csvFileWriterFactory)
+	    {
+            // In this case, we are making it mandatory to have both a factory for reader and writer
+            // Depending on the requirements, it could be optional
+	        if (csvFileReaderFactory == null)
+	        {
+	            throw new ArgumentNullException(nameof(csvFileReaderFactory));
+            }
 
-        public CSVReaderWriter(string fileName, Mode mode)
+            if (csvFileWriterFactory == null)
+	        {
+                throw new ArgumentNullException(nameof(csvFileWriterFactory));
+	        }
+
+            this.csvFileReaderFactory = csvFileReaderFactory;
+	        this.csvFileWriterFactory = csvFileWriterFactory;
+	    }
+
+        /// <summary>
+        /// Initializes CSVReaderWriter with CSV (tab separated) file reader and writer capabilities
+        /// </summary>
+        public CSVReaderWriter() : this(new TabCSVReaderFactory(), new TabCSVFileWriterFactory())
+        {
+
+        }
+
+        /// <summary>
+        /// Initializes CSVReaderWriter with CSV (tab separated) file reader and writer capabilities
+        /// </summary>
+        /// <param name="fileName">Filename of file to be parsed</param>
+        /// <param name="mode">Opens the file in Read or Write mode</param>
+        public CSVReaderWriter(string fileName, Mode mode) : this()
         {
             Open(fileName, mode);
         }
@@ -36,14 +70,14 @@ namespace AddressProcessing.CSV
         /// <param name="mode">Read or Write mode allowed</param>
         public void Open(string fileName, Mode mode)
         {
+            Close(); // To release any file handler if exists
             if (mode == Mode.Read)
             {
-                _readerStream = File.OpenText(fileName);
+                csvFileReader = csvFileReaderFactory.GetInstance(fileName);
             }
             else if (mode == Mode.Write)
             {
-                FileInfo fileInfo = new FileInfo(fileName);
-                _writerStream = fileInfo.CreateText();
+                csvFileWriter = csvFileWriterFactory.GetInstance(fileName);
             }
         }
 
@@ -54,17 +88,14 @@ namespace AddressProcessing.CSV
         /// <exception cref="InvalidOperationException">In case the instance's mode is <see cref="Mode.Read"/>.</exception>
         public void Write(params string[] columns)
         {
-            // Null columns can still be accepted (for retrocompability) as the end-result will be a newline
-            string line = null;
-            if (columns != null)
+            if (csvFileWriter == null)
             {
-                // NOTE: Here we are going for the most balanced solution, using string.Join
-                // Check this if you face an performance issue and decide for StringBuilder instead
-                // https://stackoverflow.com/questions/585860/string-join-vs-stringbuilder-which-is-faster
-                line = string.Join(CSVSeparator, columns);
+                // NOTE: Depending on the need and the consistency in rest of the project, we can create an exception specific to report this Mode issue
+                // An alternative to this would be to ignore if it's not initialized
+                throw new InvalidOperationException(string.Format(ExceptionModeMessage, Mode.Write.ToString()));
             }
 
-            WriteLine(line);
+            csvFileWriter.Write(columns);
         }
 
         /// <summary>
@@ -89,64 +120,29 @@ namespace AddressProcessing.CSV
         /// <returns>One line with a column found</returns>
         public bool Read(out string column1, out string column2)
         {
-            column1 = null;
-            column2 = null;
-
-            string line = ReadLine();
-            if (line == null)
-            {
-                return false;
-            }
-
-            // NOTE: In this case we are going to get all columns.
-            // If we have performance issues from loading huge files with too many columns,
-            // a regex solution that fetches only the first two columns would be preferable
-            string[] columns = line.Split(new[] { CSVSeparator }, StringSplitOptions.None);
-            if (columns.Length >= 2)
-            {
-                column2 = columns[1];
-            }
-
-            //Split always returns at least one element in the array, even if the line is empty
-            column1 = columns[0];
-
-            return true;
-        }
-
-        private void WriteLine(string line)
-        {
-            if (_writerStream == null)
-            {
-                // NOTE: Depending on the need and the consistency in rest of the project, we can create an exception specific to report this Mode issue
-                // An alternative to this would be to ignore if it's not initialized
-                throw new InvalidOperationException(string.Format(ExceptionModeMessage, Mode.Write.ToString()));
-            }
-
-            _writerStream.WriteLine(line);
-        }
-
-        private string ReadLine()
-        {
-            if (_readerStream == null)
+            if (csvFileReader == null)
             {
                 // NOTE: Depending on the need and the consistency in rest of the project, we can create an exception specific to report this Mode issue
                 // An alternative to this would be to return null if it's not initialized
                 throw new InvalidOperationException(string.Format(ExceptionModeMessage, Mode.Read.ToString()));
             }
 
-            return _readerStream.ReadLine();
+            return csvFileReader.Read(out column1, out column2);
         }
 
-        public void Close()
+        /// <summary>
+        /// Closes any file handler if it was open
+        /// </summary>
+	    public void Close()
         {
-            _writerStream?.Close();
-            _readerStream?.Close();
+            csvFileWriter?.Dispose();
+            csvFileReader?.Dispose();
         }
 
         #region IDisposable Support
-        private bool disposedValue = false; // To detect redundant calls
+        
 
-        protected virtual void Dispose(bool disposing)
+	    protected virtual void Dispose(bool disposing)
         {
             if (!disposedValue)
             {
