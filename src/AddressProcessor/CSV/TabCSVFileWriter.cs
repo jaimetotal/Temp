@@ -1,21 +1,37 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 
 namespace AddressProcessing.CSV
 {
-    public class TabCSVFileWriter : ICSVFileWriter
+    public sealed class TabCSVFileWriter : ICSVFileWriter, IDisposable
     {
         private const string CSVSeparator = "\t";
-        private readonly StreamWriter writerStream;
+        private StreamWriter writerStream;
         private bool disposedValue;
 
-        public TabCSVFileWriter(string fileName)
+        public void Open(string fileName)
         {
+            Close();
             FileInfo fileInfo = new FileInfo(fileName);
             writerStream = fileInfo.CreateText();
+            IsOpen = true;
         }
+
+        public void Close()
+        {
+            IsOpen = false;
+            writerStream?.Close();
+        }
+
+        public bool IsOpen { get; private set; }
 
         public void Write(params string[] columns)
         {
+            if (writerStream == null)
+            {
+                throw new IOException("File not open.");
+            }
+
             // Null columns can still be accepted (for retrocompability) as the end-result will be a newline
             string line = null;
             if (columns != null)
@@ -30,13 +46,13 @@ namespace AddressProcessing.CSV
         }
 
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!disposedValue)
             {
                 if (disposing)
                 {
-                    writerStream?.Dispose();
+                    Close();
                 }
 
                 disposedValue = true;

@@ -8,14 +8,12 @@ namespace AddressProcessing.CSV
     */
 
     // NOTE: This code could be refactored to use a proper open source solution but for now, it will just have refactoring
-    public class CSVReaderWriter : ICSVFileReader, ICSVFileWriter
+    public class CSVReaderWriter : IDisposable
 	{
-	    private readonly ICSVFileReaderFactory csvFileReaderFactory;
-	    private readonly ICSVFileWriterFactory csvFileWriterFactory;
 	    private const string ExceptionModeMessage = "This instance is not in {0} Mode.";
 	    private bool disposedValue; // To detect redundant calls
-	    private ICSVFileReader csvFileReader;
-	    private ICSVFileWriter csvFileWriter;
+	    private readonly ICSVFileReader csvFileReader;
+	    private readonly ICSVFileWriter csvFileWriter;
 
         // We shouldn't keep the flags as we don't support both modes at the same time. That way we can avoid an additional condition (and less error usage from the user) in the Open method
         // NOTE: When adding a new mode, it's necessary to implement support in the Open method
@@ -24,30 +22,20 @@ namespace AddressProcessing.CSV
         /// <summary>
         /// Initializes CSVReaderWriter with custom CSVFileReader and CSVFileWriter
         /// </summary>
-        /// <param name="csvFileReaderFactory">ICSVFileReaderFactory instance. Mandatory.</param>
-        /// <param name="csvFileWriterFactory">ICSVFileWriterFactory instance. Mandatory.</param>
-	    public CSVReaderWriter(ICSVFileReaderFactory csvFileReaderFactory, ICSVFileWriterFactory csvFileWriterFactory)
+        /// <param name="csvFileReader">CSVFileReader to be used. Mandatory.</param>
+        /// <param name="csvFileWriter">CSVFileWriter to be used. Mandatory.</param>
+	    public CSVReaderWriter(ICSVFileReader csvFileReader, ICSVFileWriter csvFileWriter)
 	    {
-            // In this case, we are making it mandatory to have both a factory for reader and writer
-            // Depending on the requirements, it could be optional
-	        if (csvFileReaderFactory == null)
-	        {
-	            throw new ArgumentNullException(nameof(csvFileReaderFactory));
-            }
-
-            if (csvFileWriterFactory == null)
-	        {
-                throw new ArgumentNullException(nameof(csvFileWriterFactory));
-	        }
-
-            this.csvFileReaderFactory = csvFileReaderFactory;
-	        this.csvFileWriterFactory = csvFileWriterFactory;
+	        // In this case, we are making it mandatory to have both a reader and writer
+	        // Depending on the requirements, it could be optional
+            this.csvFileReader = csvFileReader ?? throw new ArgumentNullException(nameof(csvFileReader));
+	        this.csvFileWriter = csvFileWriter ?? throw new ArgumentNullException(nameof(csvFileWriter));
 	    }
 
         /// <summary>
         /// Initializes CSVReaderWriter with CSV (tab separated) file reader and writer capabilities
         /// </summary>
-        public CSVReaderWriter() : this(new TabCSVReaderFactory(), new TabCSVFileWriterFactory())
+        public CSVReaderWriter() : this(new TabCSVFileReader(), new TabCSVFileWriter())
         {
 
         }
@@ -65,6 +53,7 @@ namespace AddressProcessing.CSV
         /// <summary>
         /// Opens the file in either <see cref="Mode.Read"/> which in turn can use <see cref="Read(out string, out string)"/> 
         /// or <see cref="Mode.Write"/> mode, in order to allow <see cref="Write(string[])"/>
+        /// Closes any previous file open.
         /// </summary>
         /// <param name="fileName">File path to read or create, depending on <paramref name="mode"/></param>
         /// <param name="mode">Read or Write mode allowed</param>
@@ -73,11 +62,11 @@ namespace AddressProcessing.CSV
             Close(); // To release any file handler if exists
             if (mode == Mode.Read)
             {
-                csvFileReader = csvFileReaderFactory.GetInstance(fileName);
+                csvFileReader.Open(fileName);
             }
             else if (mode == Mode.Write)
             {
-                csvFileWriter = csvFileWriterFactory.GetInstance(fileName);
+                csvFileWriter.Open(fileName);
             }
         }
 
@@ -88,7 +77,7 @@ namespace AddressProcessing.CSV
         /// <exception cref="InvalidOperationException">In case the instance's mode is <see cref="Mode.Read"/>.</exception>
         public void Write(params string[] columns)
         {
-            if (csvFileWriter == null)
+            if (!csvFileWriter.IsOpen)
             {
                 // NOTE: Depending on the need and the consistency in rest of the project, we can create an exception specific to report this Mode issue
                 // An alternative to this would be to ignore if it's not initialized
@@ -120,7 +109,7 @@ namespace AddressProcessing.CSV
         /// <returns>One line with a column found</returns>
         public bool Read(out string column1, out string column2)
         {
-            if (csvFileReader == null)
+            if (!csvFileReader.IsOpen)
             {
                 // NOTE: Depending on the need and the consistency in rest of the project, we can create an exception specific to report this Mode issue
                 // An alternative to this would be to return null if it's not initialized
@@ -135,8 +124,8 @@ namespace AddressProcessing.CSV
         /// </summary>
 	    public void Close()
         {
-            csvFileWriter?.Dispose();
-            csvFileReader?.Dispose();
+            csvFileWriter.Close();
+            csvFileReader.Close();
         }
 
         #region IDisposable Support

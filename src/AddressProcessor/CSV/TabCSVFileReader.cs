@@ -3,16 +3,26 @@ using System.IO;
 
 namespace AddressProcessing.CSV
 {
-    public class TabCSVFileReader : ICSVFileReader
+    public sealed class TabCSVFileReader : ICSVFileReader, IDisposable
     {
         private const string CSVSeparator = "\t";
-        private readonly StreamReader _readerStream;
+        private StreamReader readerStream;
         private bool disposedValue;
 
-        public TabCSVFileReader(string filename)
+        public void Open(string fileName)
         {
-            _readerStream = File.OpenText(filename);
+            Close();
+            readerStream = File.OpenText(fileName);
+            IsOpen = true;
         }
+
+        public void Close()
+        {
+            readerStream?.Close();
+            IsOpen = false;
+        }
+
+        public bool IsOpen { get; private set; }
 
         /// <summary>
         /// Reads a line from the CSV if it has at least one column present and parse it to max of two columns
@@ -22,10 +32,15 @@ namespace AddressProcessing.CSV
         /// <returns>One line with a column found</returns>
         public bool Read(out string column1, out string column2)
         {
+            if (!IsOpen)
+            {
+                throw new IOException("File not open.");
+            }
+
             column1 = null;
             column2 = null;
 
-            string line = _readerStream.ReadLine();
+            string line = readerStream.ReadLine();
             if (line == null)
             {
                 return false;
@@ -46,13 +61,13 @@ namespace AddressProcessing.CSV
             return true;
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!disposedValue)
             {
                 if (disposing)
                 {
-                    _readerStream?.Dispose();
+                    Close();
                 }
 
                 disposedValue = true;
